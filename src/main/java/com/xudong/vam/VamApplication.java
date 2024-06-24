@@ -1,6 +1,5 @@
 package com.xudong.vam;
 
-import com.xudong.vam.mod.ModSelector;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -36,7 +35,6 @@ public class VamApplication extends Application {
                 .web(WebApplicationType.NONE)
                 .run(args);
 
-        ModSelector selector = context.getBean(ModSelector.class);
-        selector.select(17);
+        launch(args);
     }
 }
