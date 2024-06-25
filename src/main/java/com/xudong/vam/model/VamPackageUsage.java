@@ -6,15 +6,18 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @Entity
 @Data
 @RequiredArgsConstructor
-@Table(name = "t_vam_usage", uniqueConstraints = @UniqueConstraint(name = "uniq", columnNames = {}))
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "t_vam_usage")
 public class VamPackageUsage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,4 +34,8 @@ public class VamPackageUsage {
     @NonNull
     @Column(name = "dependency_id")
     private Long dependencyId;
+
+    @NonNull
+    @Column(name = "uuid")
+    private String uuid;
 }

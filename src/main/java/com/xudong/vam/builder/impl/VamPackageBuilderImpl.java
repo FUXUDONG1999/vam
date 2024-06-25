@@ -13,21 +13,26 @@ public class VamPackageBuilderImpl implements VamPackageBuilder {
     public VamPackage build(Package pack, String imagePath) {
         VamPackage vamPackage = new VamPackage();
         Metadata metadata = pack.getMetadata();
-        if (metadata == null) {
-            return null;
+        if (metadata != null) {
+            vamPackage.setDescription(metadata.getDescription());
+            vamPackage.setDependencies(JsonUtils.toJson(metadata.getDependencies()));
         }
 
-        vamPackage.setName(metadata.getPackageName());
-        String version = metadata.getStandardReferenceVersionOption();
-        if (version == null) {
-            version = "Latest";
-        }
+        String fileName = pack.getPath()
+                .getFileName()
+                .toString();
+        fileName = fileName.substring(0, fileName.lastIndexOf("."));
+
+        String[] strings = fileName.split("\\.");
+        String creatorName = strings[0];
+        String name = strings[1];
+        String version = strings[2];
+
+        vamPackage.setName(name);
         vamPackage.setVersion(version);
-        vamPackage.setCreatorName(metadata.getCreatorName());
+        vamPackage.setCreatorName(creatorName);
         vamPackage.setPath(pack.getPath().toString());
-        vamPackage.setDescription(metadata.getDescription());
         vamPackage.setImagePath(imagePath);
-        vamPackage.setDependencies(JsonUtils.toJson(metadata.getDependencies()));
 
         return vamPackage;
     }

@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -33,18 +34,19 @@ public class VamPackageServiceImpl implements VamPackageService {
     private final VamPackageRepository vamPackageRepository;
 
     @Override
-    public void generate(Path path, ProgressBar<VamPackage> progressBar) {
-        try {
-            List<CompletableFuture<Package>> packages = varExtractor.extractAll(path);
-            if (packages == null || packages.isEmpty()) {
-                return;
-            }
+    public void generate(Path path, ProgressBar<VamPackage> progressBar) throws IOException {
+        List<CompletableFuture<Package>> packages = varExtractor.extractAll(path);
+        if (packages == null || packages.isEmpty()) {
+            return;
+        }
 
-            int totalPack = packages.size();
-            int currentPack = 0;
+        int totalPack = packages.size();
+        int currentPack = 0;
 
-            for (CompletableFuture<Package> packFuture : packages) {
-                Package pack = packFuture.get();
+        for (CompletableFuture<Package> packFuture : packages) {
+            Package pack = null;
+            try {
+                pack = packFuture.get();
 
                 String imagePath = imageStorage.store(vamProperties.getImagePath(), pack.getImage());
                 VamPackage vamPackage = vamPackageBuilder.build(pack, imagePath);
@@ -54,10 +56,13 @@ public class VamPackageServiceImpl implements VamPackageService {
                 if (progressBar != null) {
                     progressBar.progress(totalPack, ++currentPack, vamPackage);
                 }
+            } catch (Exception e) {
+                if (pack != null) {
+                    log.error("Generate fail,path: {}", pack.getPath().toString(), e);
+                }
+                throw new RuntimeException(e);
             }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-            throw new RuntimeException(e);
+
         }
     }
 

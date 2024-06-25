@@ -11,4 +11,6 @@ public interface VamPackageUsageRepository extends CrudRepository<VamPackageUsag
     List<VamPackageUsage> findAllByDependencyId(Long id);
 
     List<VamPackageUsage> findAllByRootId(Long id);
+
+    VamPackageUsage findByUuidAndDependencyId(String uuid, Long dependencyId);
 }

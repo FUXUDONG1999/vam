@@ -1,7 +1,6 @@
 package com.xudong.vam.mod.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.xudong.vam.concurrent.ConcurrentExecutor;
 import com.xudong.vam.config.VamProperties;
 import com.xudong.vam.mod.ModSelector;
 import com.xudong.vam.model.VamPackage;
@@ -18,11 +17,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -34,8 +35,6 @@ public class ModSelectorImpl implements ModSelector {
 
     private final VamProperties vamProperties;
 
-    private final ConcurrentExecutor concurrentExecutor;
-
     @Override
     public void select(String usageName, long rootId) throws IOException {
         Optional<VamPackage> optional = vamPackageRepository.findById(rootId);
@@ -43,8 +42,22 @@ public class ModSelectorImpl implements ModSelector {
             return;
         }
 
-        VamPackage vamPackage = optional.get();
-        selectPackage(usageName, vamPackage, rootId);
+        String uuid = UUID.randomUUID().toString();
+        List<VamPackageUsage> packageUsages = vamPackageUsageRepository.findAllByRootId(rootId);
+        if (packageUsages != null && !packageUsages.isEmpty()) {
+            uuid = packageUsages.get(0).getUuid();
+        }
+
+        VamPackage rootPackage = optional.get();
+        Map<Long, VamPackage> packages = new LinkedHashMap<>();
+        selectPackages(rootPackage, packages);
+
+        for (VamPackage vamPackage : packages.values()) {
+            linkPackage(vamPackage, uuid);
+            saveUsage(new VamPackageUsage(usageName, rootPackage.getId(), vamPackage.getId(), uuid));
+        }
+
+        symbolicLink(usagePath(uuid), Path.of(vamProperties.getModPath()));
     }
 
     @Override
@@ -61,65 +74,79 @@ public class ModSelectorImpl implements ModSelector {
         }
     }
 
-    private void selectPackage(String usageName, VamPackage vamPackage, long rootId) throws IOException {
-        if (vamPackage == null) {
+    private void selectPackages(VamPackage rootPackage, Map<Long, VamPackage> vamPackages) {
+        if (vamPackages.containsKey(rootPackage.getId())) {
             return;
         }
 
-        String modPath = vamProperties.getModPath();
-        Path source = Path.of(vamPackage.getPath());
-        Path target = Path.of(modPath, source.getFileName().toString());
-        if (Files.exists(target)) {
-            return;
-        }
-
-        Files.createSymbolicLink(target, source);
-        vamPackageUsageRepository.save(new VamPackageUsage(usageName, rootId, vamPackage.getId()));
-
-        String dependenciesJson = vamPackage.getDependencies();
+        vamPackages.put(rootPackage.getId(), rootPackage);
+        String dependenciesJson = rootPackage.getDependencies();
         if (dependenciesJson == null) {
             return;
         }
 
-        Map<String, Metadata> dependencies = JsonUtils.fromJson(dependenciesJson, new TypeReference<>() {
-        });
-        selectDependencies(usageName, dependencies, rootId);
+        selectDependencies(
+                JsonUtils.fromJson(dependenciesJson, new TypeReference<>() {
+                }),
+                vamPackages
+        );
     }
 
-    private void selectDependencies(String usageName, Map<String, Metadata> dependencies, long rootId) {
+    private void linkPackage(VamPackage rootPackage, String uuid) throws IOException {
+        if (rootPackage == null) {
+            return;
+        }
+
+        Path path = usagePath(uuid);
+        if (!Files.exists(path)) {
+            Files.createDirectories(path);
+        }
+
+        symbolicLink(Path.of(rootPackage.getPath()), path);
+    }
+
+    private void selectDependencies(Map<String, Metadata> dependencies, Map<Long, VamPackage> vamPackages) {
         if (dependencies == null || dependencies.isEmpty()) {
             return;
         }
 
-        List<CompletableFuture<Void>> futures = new LinkedList<>();
+        Set<String> creators = new HashSet<>();
+        Set<String> names = new HashSet<>();
 
-        for (Map.Entry<String, Metadata> metadataEntry : dependencies.entrySet()) {
-            futures.add(concurrentExecutor.execute(() -> {
-                try {
-                    String key = metadataEntry.getKey();
-                    String[] strings = key.split("\\.");
-                    String creatorName = strings[0];
-                    String name = strings[1];
+        dependencies.forEach((key, value) -> {
+            String[] strings = key.split("\\.");
+            String creatorName = strings[0];
+            String name = strings[1];
 
-                    List<VamPackage> vamPackages = vamPackageRepository.findAllByCreatorNameAndName(creatorName, name);
-                    for (VamPackage vamPackage : vamPackages) {
-                        selectPackage(usageName, vamPackage, rootId);
-                    }
+            creators.add(creatorName);
+            names.add(name);
 
-                    Metadata metadata = metadataEntry.getValue();
-                    if (metadata == null) {
-                        return null;
-                    }
+            selectDependencies(value.getDependencies(), vamPackages);
+        });
 
-                    selectDependencies(usageName, metadata.getDependencies(), rootId);
+        vamPackageRepository.findAllByCreatorNameInAndNameIn(creators, names)
+                .forEach(vamPackage -> selectPackages(vamPackage, vamPackages));
+    }
 
-                    return null;
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }));
+    private void symbolicLink(Path source, Path dest) throws IOException {
+        dest = Path.of(dest.toString(), source.getFileName().toString());
+        if (Files.exists(dest)) {
+            return;
         }
 
-        concurrentExecutor.wait(futures);
+        Files.createSymbolicLink(dest, source);
+    }
+
+    private Path usagePath(String uuid) {
+        return Path.of(vamProperties.getGamePath(), "vam-packages-link", uuid);
+    }
+
+    private void saveUsage(VamPackageUsage usage) {
+        VamPackageUsage savedUsage = vamPackageUsageRepository.findByUuidAndDependencyId(usage.getUuid(), usage.getDependencyId());
+        if (savedUsage != null) {
+            return;
+        }
+
+        vamPackageUsageRepository.save(usage);
     }
 }

@@ -24,7 +24,7 @@ public class ImageStorage implements Storage<Image> {
         String name = imagePath.substring(imagePath.lastIndexOf("/") + 1);
         byte[] content = image.getContent();
 
-        Path dest = Path.of(path, name + ".jpg");
+        Path dest = Path.of(path, name);
         if (Files.exists(dest)) {
             return dest.toString();
         }
