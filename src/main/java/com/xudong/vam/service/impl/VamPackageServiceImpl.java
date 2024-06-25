@@ -34,7 +34,7 @@ public class VamPackageServiceImpl implements VamPackageService {
     private final VamPackageRepository vamPackageRepository;
 
     @Override
-    public void generate(Path path, ProgressBar<VamPackage> progressBar) throws IOException {
+    public void generate(Path path, ProgressBar progressBar) throws IOException {
         List<CompletableFuture<Package>> packages = varExtractor.extractAll(path);
         if (packages == null || packages.isEmpty()) {
             return;
@@ -47,6 +47,9 @@ public class VamPackageServiceImpl implements VamPackageService {
             Package pack = null;
             try {
                 pack = packFuture.get();
+                if (pack == null) {
+                    continue;
+                }
 
                 String imagePath = imageStorage.store(vamProperties.getImagePath(), pack.getImage());
                 VamPackage vamPackage = vamPackageBuilder.build(pack, imagePath);
@@ -54,13 +57,12 @@ public class VamPackageServiceImpl implements VamPackageService {
                 create(vamPackage);
 
                 if (progressBar != null) {
-                    progressBar.progress(totalPack, ++currentPack, vamPackage);
+                    progressBar.progress(totalPack, ++currentPack);
                 }
             } catch (Exception e) {
                 if (pack != null) {
                     log.error("Generate fail,path: {}", pack.getPath().toString(), e);
                 }
-                throw new RuntimeException(e);
             }
 
         }
@@ -73,7 +75,7 @@ public class VamPackageServiceImpl implements VamPackageService {
 
         VamPackage pack = vamPackageRepository.findByNameAndVersionAndCreatorName(vamPackage.getName(), vamPackage.getVersion(), vamPackage.getCreatorName());
         if (pack != null) {
-            vamPackage.setId(pack.getId());
+            return;
         }
 
         vamPackageRepository.save(vamPackage);

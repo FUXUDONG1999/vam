@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class ConcurrentExecutor {
-    private static final ExecutorService EXECUTOR_SERVICE = new ForkJoinPool();
+    private static final ExecutorService EXECUTOR_SERVICE = new ForkJoinPool(100);
 
     public <P, R> List<CompletableFuture<R>> executeAll(List<P> parameters, Function<P, R> function) {
         if (parameters == null || function == null) {

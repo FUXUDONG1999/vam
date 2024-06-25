@@ -12,12 +12,14 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.springframework.stereotype.Component;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -34,6 +36,7 @@ public class VarExtractorImpl implements VarExtractor {
         if (packagePath == null || !Files.exists(packagePath)) {
             throw new IllegalArgumentException("Package path is null or empty");
         }
+
         try (ZipFile zipFile = ZipFile.builder().setPath(packagePath).get()) {
             Metadata metadata = extractMetadata(zipFile);
 
@@ -54,6 +57,26 @@ public class VarExtractorImpl implements VarExtractor {
         return concurrentExecutor.executeAll(paths, this::extract);
     }
 
+    private Path extractZip(Path packagePath) {
+        try (ZipFile zipFile = ZipFile.builder().setPath(packagePath).get()) {
+            String pathString = packagePath.toString();
+            Path dest = Path.of(pathString.substring(0, pathString.lastIndexOf(".")));
+            if (!Files.exists(dest)) {
+                Files.createDirectories(dest);
+            }
+
+            Iterator<ZipArchiveEntry> iterator = zipFile.getEntries().asIterator();
+            while (iterator.hasNext()) {
+                unzipFile(zipFile, iterator.next(), dest.toString());
+            }
+
+            return dest;
+        } catch (Exception e) {
+            log.error("Extract zip error:{}, {}", packagePath, e.getMessage(), e);
+            return null;
+        }
+    }
+
     private List<Path> getPackagesPath(Path packagePath, List<Path> packages) {
         if (Files.isDirectory(packagePath)) {
             String[] fileNames = packagePath.toFile()
@@ -71,7 +94,14 @@ public class VarExtractorImpl implements VarExtractor {
         }
 
         String fileName = packagePath.getFileName().toString();
-        if (!fileName.endsWith(".zip") && !fileName.endsWith(".var")) {
+        if (fileName.endsWith(".zip")) {
+            Path path = extractZip(packagePath);
+            if (path != null) {
+                getPackagesPath(path, packages);
+            }
+        }
+
+        if (!fileName.endsWith(".var")) {
             return packages;
         }
 
@@ -127,5 +157,23 @@ public class VarExtractorImpl implements VarExtractor {
 
         InputStream inputStream = zipFile.getInputStream(entry);
         return inputStream.readAllBytes();
+    }
+
+    private void unzipFile(ZipFile zipFile, ZipArchiveEntry entry, String dest) throws IOException {
+        File entryPath = new File(dest + File.separator + entry.getName());
+        if (entry.isDirectory()) {
+            if (!entryPath.exists()) {
+                entryPath.mkdir();
+            }
+
+            return;
+        }
+
+        InputStream inputStream = zipFile.getInputStream(entry);
+        if (entryPath.exists()) {
+            return;
+        }
+
+        Files.write(entryPath.toPath(), inputStream.readAllBytes());
     }
 }

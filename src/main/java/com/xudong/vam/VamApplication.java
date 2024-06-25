@@ -1,6 +1,5 @@
 package com.xudong.vam;
 
-import com.xudong.vam.service.VamPackageService;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -14,7 +13,6 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ApplicationContext;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 @Slf4j
 @SpringBootApplication
@@ -36,11 +34,6 @@ public class VamApplication extends Application {
                 .bannerMode(Banner.Mode.OFF)
                 .web(WebApplicationType.NONE)
                 .run(args);
-
-        VamPackageService bean = context.getBean(VamPackageService.class);
-        bean.generate(Path.of("E:\\GAME\\vam1.22.0.3"), (total, current, item) -> {
-            log.info("Total: {},Current: {}", total, current);
-        });
 
         launch(args);
     }

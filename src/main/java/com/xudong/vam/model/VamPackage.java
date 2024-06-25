@@ -35,6 +35,6 @@ public class VamPackage {
     @Column(name = "dependencies", length = 100000)
     private String dependencies;
 
-    @Column(name = "image_path", length = 4096)
+    @Column(name = "image_path")
     private String imagePath;
 }
