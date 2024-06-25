@@ -5,8 +5,10 @@ import com.xudong.vam.concurrent.ConcurrentExecutor;
 import com.xudong.vam.config.VamProperties;
 import com.xudong.vam.mod.ModSelector;
 import com.xudong.vam.model.VamPackage;
+import com.xudong.vam.model.VamPackageUsage;
 import com.xudong.vam.model.domain.Metadata;
 import com.xudong.vam.repository.VamPackageRepository;
+import com.xudong.vam.repository.VamPackageUsageRepository;
 import com.xudong.vam.utils.JsonUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,19 +30,21 @@ import java.util.concurrent.CompletableFuture;
 public class ModSelectorImpl implements ModSelector {
     private final VamPackageRepository vamPackageRepository;
 
+    private final VamPackageUsageRepository vamPackageUsageRepository;
+
     private final VamProperties vamProperties;
 
     private final ConcurrentExecutor concurrentExecutor;
 
     @Override
-    public void select(long id) throws IOException {
-        Optional<VamPackage> optional = vamPackageRepository.findById(id);
+    public void select(String usageName, long rootId) throws IOException {
+        Optional<VamPackage> optional = vamPackageRepository.findById(rootId);
         if (optional.isEmpty()) {
             return;
         }
 
         VamPackage vamPackage = optional.get();
-        selectPackage(vamPackage);
+        selectPackage(usageName, vamPackage, rootId);
     }
 
     @Override
@@ -57,7 +61,7 @@ public class ModSelectorImpl implements ModSelector {
         }
     }
 
-    private void selectPackage(VamPackage vamPackage) throws IOException {
+    private void selectPackage(String usageName, VamPackage vamPackage, long rootId) throws IOException {
         if (vamPackage == null) {
             return;
         }
@@ -70,6 +74,7 @@ public class ModSelectorImpl implements ModSelector {
         }
 
         Files.createSymbolicLink(target, source);
+        vamPackageUsageRepository.save(new VamPackageUsage(usageName, rootId, vamPackage.getId()));
 
         String dependenciesJson = vamPackage.getDependencies();
         if (dependenciesJson == null) {
@@ -78,10 +83,10 @@ public class ModSelectorImpl implements ModSelector {
 
         Map<String, Metadata> dependencies = JsonUtils.fromJson(dependenciesJson, new TypeReference<>() {
         });
-        selectDependencies(dependencies);
+        selectDependencies(usageName, dependencies, rootId);
     }
 
-    private void selectDependencies(Map<String, Metadata> dependencies) {
+    private void selectDependencies(String usageName, Map<String, Metadata> dependencies, long rootId) {
         if (dependencies == null || dependencies.isEmpty()) {
             return;
         }
@@ -98,7 +103,7 @@ public class ModSelectorImpl implements ModSelector {
 
                     List<VamPackage> vamPackages = vamPackageRepository.findAllByCreatorNameAndName(creatorName, name);
                     for (VamPackage vamPackage : vamPackages) {
-                        selectPackage(vamPackage);
+                        selectPackage(usageName, vamPackage, rootId);
                     }
 
                     Metadata metadata = metadataEntry.getValue();
@@ -106,7 +111,7 @@ public class ModSelectorImpl implements ModSelector {
                         return null;
                     }
 
-                    selectDependencies(metadata.getDependencies());
+                    selectDependencies(usageName, metadata.getDependencies(), rootId);
 
                     return null;
                 } catch (Exception e) {
