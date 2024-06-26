@@ -11,7 +11,5 @@ import java.util.Set;
 public interface VamPackageRepository extends CrudRepository<VamPackage, Long> {
     VamPackage findByNameAndVersionAndCreatorName(String name, String version, String creatorName);
 
-    List<VamPackage> findAllByCreatorNameAndName(String creator, String name);
-
     List<VamPackage> findAllByCreatorNameInAndNameIn(Set<String> creators, Set<String> names);
 }

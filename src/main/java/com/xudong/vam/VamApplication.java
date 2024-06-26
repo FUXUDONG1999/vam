@@ -1,5 +1,7 @@
 package com.xudong.vam;
 
+import com.xudong.vam.selector.PackageSelector;
+import com.xudong.vam.service.SelectService;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -13,6 +15,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ApplicationContext;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 @SpringBootApplication
@@ -34,6 +37,13 @@ public class VamApplication extends Application {
                 .bannerMode(Banner.Mode.OFF)
                 .web(WebApplicationType.NONE)
                 .run(args);
+
+        SelectService selectService = context.getBean(SelectService.class);
+        long selectId = selectService.createSelect("test");
+
+        PackageSelector selector = context.getBean(PackageSelector.class);
+        List<Long> ids = selector.select(selectId, 18);
+        selector.unselect(1);
 
         launch(args);
     }

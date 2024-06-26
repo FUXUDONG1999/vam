@@ -17,25 +17,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "t_vam_usage")
-public class VamPackageUsage {
+@Table(name = "t_select_detail")
+public class SelectDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NonNull
-    @Column(name = "name", length = 128)
-    private String name;
+    @Column(name = "select_id")
+    private Long selectId;
 
     @NonNull
     @Column(name = "root_id")
     private Long rootId;
 
     @NonNull
-    @Column(name = "dependency_id")
-    private Long dependencyId;
-
-    @NonNull
-    @Column(name = "uuid")
-    private String uuid;
+    @Column(name = "child_id")
+    private Long childId;
 }

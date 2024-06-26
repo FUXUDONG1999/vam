@@ -37,4 +37,8 @@ public class VamPackage {
 
     @Column(name = "image_path")
     private String imagePath;
+
+    public String getFileName() {
+        return String.format("%s.%s.%s.var", creatorName, name, version);
+    }
 }

@@ -1,13 +1,16 @@
-package com.xudong.vam.mod.impl;
+package com.xudong.vam.selector.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.xudong.vam.config.VamProperties;
-import com.xudong.vam.mod.ModSelector;
+import com.xudong.vam.helper.PathHelper;
+import com.xudong.vam.model.SelectDetail;
+import com.xudong.vam.model.SelectPackage;
 import com.xudong.vam.model.VamPackage;
-import com.xudong.vam.model.VamPackageUsage;
 import com.xudong.vam.model.domain.Metadata;
+import com.xudong.vam.repository.SelectDetailRepository;
+import com.xudong.vam.repository.SelectPackageRepository;
 import com.xudong.vam.repository.VamPackageRepository;
-import com.xudong.vam.repository.VamPackageUsageRepository;
+import com.xudong.vam.selector.PackageSelector;
 import com.xudong.vam.utils.JsonUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,41 +26,74 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 @Slf4j
 @Component
 @AllArgsConstructor
-public class ModSelectorImpl implements ModSelector {
+public class PackageSelectorImpl implements PackageSelector {
     private final VamPackageRepository vamPackageRepository;
 
-    private final VamPackageUsageRepository vamPackageUsageRepository;
+    private final SelectPackageRepository selectPackageRepository;
+
+    private final SelectDetailRepository selectDetailRepository;
 
     private final VamProperties vamProperties;
 
+    private final PathHelper pathHelper;
+
     @Override
-    public void select(String usageName, long rootId) throws IOException {
-        Optional<VamPackage> optional = vamPackageRepository.findById(rootId);
-        if (optional.isEmpty()) {
+    public List<Long> select(long selectId, long rootId) throws IOException {
+        Optional<SelectPackage> selectPackageOptional = selectPackageRepository.findById(selectId);
+        if (selectPackageOptional.isEmpty()) {
+            return null;
+        }
+
+        SelectPackage selectPackage = selectPackageOptional.get();
+        String uuid = selectPackage.getUuid();
+
+        Optional<VamPackage> vamPackageOptional = vamPackageRepository.findById(rootId);
+        if (vamPackageOptional.isEmpty()) {
+            return null;
+        }
+
+        Map<Long, VamPackage> packages = new LinkedHashMap<>();
+        selectPackages(vamPackageOptional.get(), packages);
+
+        for (VamPackage vamPackage : packages.values()) {
+            saveDetail(new SelectDetail(selectId, rootId, vamPackage.getId()));
+            linkPackage(vamPackage, uuid);
+        }
+
+        symbolicLink(pathHelper.getSelectPath(uuid), Path.of(vamProperties.getModPath()));
+
+        return packages.keySet()
+                .stream()
+                .toList();
+    }
+
+    @Override
+    public void unselect(long selectDetailId) throws IOException {
+        Optional<SelectDetail> detailOptional = selectDetailRepository.findById(selectDetailId);
+        if (detailOptional.isEmpty()) {
             return;
         }
 
-        String uuid = UUID.randomUUID().toString();
-        List<VamPackageUsage> packageUsages = vamPackageUsageRepository.findAllByRootId(rootId);
-        if (packageUsages != null && !packageUsages.isEmpty()) {
-            uuid = packageUsages.get(0).getUuid();
+        SelectDetail detail = detailOptional.get();
+        Optional<SelectPackage> selectPackageOptional = selectPackageRepository.findById(detail.getSelectId());
+        if (selectPackageOptional.isEmpty()) {
+            return;
+        }
+        SelectPackage selectPackage = selectPackageOptional.get();
+
+        Optional<VamPackage> vamPackageOptional = vamPackageRepository.findById(detail.getChildId());
+        if (vamPackageOptional.isEmpty()) {
+            return;
         }
 
-        VamPackage rootPackage = optional.get();
-        Map<Long, VamPackage> packages = new LinkedHashMap<>();
-        selectPackages(rootPackage, packages);
+        VamPackage vamPackage = vamPackageOptional.get();
+        unlinkPackage(vamPackage, selectPackage.getUuid());
 
-        for (VamPackage vamPackage : packages.values()) {
-            linkPackage(vamPackage, uuid);
-            saveUsage(new VamPackageUsage(usageName, rootPackage.getId(), vamPackage.getId(), uuid));
-        }
-
-        symbolicLink(usagePath(uuid), Path.of(vamProperties.getModPath()));
+        selectDetailRepository.deleteById(detail.getId());
     }
 
     @Override
@@ -97,12 +133,26 @@ public class ModSelectorImpl implements ModSelector {
             return;
         }
 
-        Path path = usagePath(uuid);
+        Path path = pathHelper.getSelectPath(uuid);
         if (!Files.exists(path)) {
             Files.createDirectories(path);
         }
 
         symbolicLink(Path.of(rootPackage.getPath()), path);
+    }
+
+    private void unlinkPackage(VamPackage vamPackage, String uuid) throws IOException {
+        Path path = pathHelper.getSelectPath(uuid);
+        if (!Files.exists(path)) {
+            return;
+        }
+
+        path = Path.of(path.toString(), vamPackage.getFileName());
+        if (!Files.exists(path)) {
+            return;
+        }
+
+        Files.delete(path);
     }
 
     private void selectDependencies(Map<String, Metadata> dependencies, Map<Long, VamPackage> vamPackages) {
@@ -137,16 +187,12 @@ public class ModSelectorImpl implements ModSelector {
         Files.createSymbolicLink(dest, source);
     }
 
-    private Path usagePath(String uuid) {
-        return Path.of(vamProperties.getGamePath(), "vam-packages-link", uuid);
-    }
-
-    private void saveUsage(VamPackageUsage usage) {
-        VamPackageUsage savedUsage = vamPackageUsageRepository.findByUuidAndDependencyId(usage.getUuid(), usage.getDependencyId());
-        if (savedUsage != null) {
+    private void saveDetail(SelectDetail selectDetail) {
+        SelectDetail detail = selectDetailRepository.findBySelectIdAndChildId(selectDetail.getSelectId(), selectDetail.getChildId());
+        if (detail != null) {
             return;
         }
 
-        vamPackageUsageRepository.save(usage);
+        selectDetailRepository.save(selectDetail);
     }
 }
