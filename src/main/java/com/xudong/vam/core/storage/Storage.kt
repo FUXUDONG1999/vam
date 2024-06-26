@@ -1,5 +1,5 @@
-package com.xudong.vam.core.storage;
+package com.xudong.vam.core.storage
 
-public interface Storage<T> {
-    String store(String path, T obj);
+interface Storage<T> {
+    fun store(path: String?, obj: T?): String?
 }

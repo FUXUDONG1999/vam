@@ -1,179 +1,157 @@
-package com.xudong.vam.core.extractor.impl;
+package com.xudong.vam.core.extractor.impl
 
-import com.xudong.vam.core.concurrent.ConcurrentExecutor;
-import com.xudong.vam.core.extractor.VarExtractor;
-import com.xudong.vam.core.model.domain.Image;
-import com.xudong.vam.core.model.domain.Metadata;
-import com.xudong.vam.core.model.domain.Package;
-import com.xudong.vam.core.utils.JsonUtils;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipFile;
-import org.springframework.stereotype.Component;
+import com.xudong.vam.core.concurrent.ConcurrentExecutor
+import com.xudong.vam.core.extractor.VarExtractor
+import com.xudong.vam.core.model.domain.Image
+import com.xudong.vam.core.model.domain.Metadata
+import com.xudong.vam.core.model.domain.Package
+import com.xudong.vam.core.utils.fromJson
+import lombok.AllArgsConstructor
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipFile
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+private const val METADATA = "meta.json"
 
-@Slf4j
+private val log = LoggerFactory.getLogger(VarExtractor::class.java)
+
 @Component
 @AllArgsConstructor
-public class VarExtractorImpl implements VarExtractor {
-    private static final String METADATA = "meta.json";
-
-    private final ConcurrentExecutor concurrentExecutor;
-
-    @Override
-    public Package extract(Path packagePath) {
-        if (packagePath == null || !Files.exists(packagePath)) {
-            throw new IllegalArgumentException("Package path is null or empty");
-        }
-
-        try (ZipFile zipFile = ZipFile.builder().setPath(packagePath).get()) {
-            Metadata metadata = extractMetadata(zipFile);
-
-            return new Package(packagePath, metadata, extractImage(zipFile, metadata));
-        } catch (Exception e) {
-            log.error("Extract package error:{}, {}", packagePath, e.getMessage(), e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public List<CompletableFuture<Package>> extractAll(Path packagePath) {
-        if (packagePath == null || !Files.exists(packagePath)) {
-            throw new IllegalArgumentException("Package path is null or empty");
-        }
-
-        List<Path> paths = getPackagesPath(packagePath, new ArrayList<>());
-        return concurrentExecutor.executeAll(paths, this::extract);
-    }
-
-    private Path extractZip(Path packagePath) {
-        try (ZipFile zipFile = ZipFile.builder().setPath(packagePath).get()) {
-            String pathString = packagePath.toString();
-            Path dest = Path.of(pathString.substring(0, pathString.lastIndexOf(".")));
-            if (!Files.exists(dest)) {
-                Files.createDirectories(dest);
+class VarExtractorImpl(
+    private val concurrentExecutor: ConcurrentExecutor
+) : VarExtractor {
+    override fun extract(packagePath: Path): Package {
+        try {
+            ZipFile.builder().setPath(packagePath).get().use { zipFile ->
+                val metadata = extractMetadata(zipFile)
+                return Package(packagePath, metadata, extractImage(zipFile, metadata))
             }
-
-            Iterator<ZipArchiveEntry> iterator = zipFile.getEntries().asIterator();
-            while (iterator.hasNext()) {
-                unzipFile(zipFile, iterator.next(), dest.toString());
-            }
-
-            return dest;
-        } catch (Exception e) {
-            log.error("Extract zip error:{}, {}", packagePath, e.getMessage(), e);
-            return null;
+        } catch (e: Exception) {
+            log.error("Extract package error:{}, {}", packagePath, e.message, e)
+            throw RuntimeException(e)
         }
     }
 
-    private List<Path> getPackagesPath(Path packagePath, List<Path> packages) {
+    override fun extractAll(packagePath: Path): List<CompletableFuture<Package>> {
+        val paths = getPackagesPath(packagePath, ArrayList())
+
+        return concurrentExecutor.executeAll(paths) { path ->
+            this.extract(path)
+        }
+    }
+
+    private fun extractZip(packagePath: Path): Path? {
+        try {
+            ZipFile.builder().setPath(packagePath).get().use { zipFile ->
+                val pathString = packagePath.toString()
+                val dest = Path.of(pathString.substring(0, pathString.lastIndexOf(".")))
+                if (!Files.exists(dest)) {
+                    Files.createDirectories(dest)
+                }
+
+                val iterator = zipFile.entries.asIterator()
+                while (iterator.hasNext()) {
+                    unzipFile(zipFile, iterator.next(), dest.toString())
+                }
+
+                return dest
+            }
+        } catch (e: Exception) {
+            log.error("Extract zip error:{}, {}", packagePath, e.message, e)
+            return null
+        }
+    }
+
+    private fun getPackagesPath(packagePath: Path, packages: MutableList<Path>): List<Path> {
         if (Files.isDirectory(packagePath)) {
-            String[] fileNames = packagePath.toFile()
-                    .list();
-            if (fileNames == null) {
-                return packages;
+            val fileNames = packagePath.toFile().list() ?: return packages
+
+            for (fileName in fileNames) {
+                val path = Path.of(packagePath.toString(), fileName)
+                getPackagesPath(path, packages)
             }
 
-            for (String fileName : fileNames) {
-                Path path = Path.of(packagePath.toString(), fileName);
-                getPackagesPath(path, packages);
-            }
-
-            return packages;
+            return packages
         }
 
-        String fileName = packagePath.getFileName().toString();
+        val fileName = packagePath.fileName.toString()
         if (fileName.endsWith(".zip")) {
-            Path path = extractZip(packagePath);
+            val path = extractZip(packagePath)
             if (path != null) {
-                getPackagesPath(path, packages);
+                getPackagesPath(path, packages)
             }
         }
 
         if (!fileName.endsWith(".var")) {
-            return packages;
+            return packages
         }
 
-        packages.add(packagePath);
-        return packages;
+        packages.add(packagePath)
+        return packages
     }
 
-    private Metadata extractMetadata(ZipFile zipFile) throws IOException {
-        byte[] bytes = extractContent(zipFile, METADATA);
-        if (bytes == null) {
-            return null;
-        }
+    private fun extractMetadata(zipFile: ZipFile): Metadata? {
+        val bytes = extractContent(zipFile, METADATA) ?: return null
 
-        String metadataJson = new String(bytes, StandardCharsets.UTF_8).replace("\uFEFF", "");
+        val metadataJson = String(bytes, StandardCharsets.UTF_8).replace("\uFEFF", "")
 
-        return JsonUtils.fromJson(metadataJson, Metadata.class);
+        return fromJson(metadataJson, Metadata::class.java)
     }
 
-    private Image extractImage(ZipFile zipFile, Metadata metadata) throws IOException {
+    private fun extractImage(zipFile: ZipFile, metadata: Metadata?): Image? {
         if (metadata == null) {
-            return null;
+            return null
         }
 
-        List<String> contentList = metadata.getContentList();
-        if (contentList == null || contentList.isEmpty()) {
-            return null;
+        val contentList = metadata.contentList
+        if (contentList.isNullOrEmpty()) {
+            return null
         }
 
-        List<String> imagePaths = contentList.stream()
-                .filter(name -> name.endsWith(".jpg"))
-                .toList();
+        val imagePaths = contentList.stream()
+            .filter { name: String -> name.endsWith(".jpg") }
+            .toList()
         if (imagePaths.isEmpty()) {
-            return null;
+            return null
         }
 
-        for (String imagePath : imagePaths) {
-            byte[] content = extractContent(zipFile, imagePath);
-            if (content == null) {
-                continue;
-            }
+        for (imagePath in imagePaths) {
+            val content = extractContent(zipFile, imagePath) ?: continue
 
-            return new Image(imagePath, content);
+            return Image(imagePath, content)
         }
 
-        return null;
+        return null
     }
 
-    private byte[] extractContent(ZipFile zipFile, String path) throws IOException {
-        ZipArchiveEntry entry = zipFile.getEntry(path);
-        if (entry == null) {
-            return null;
-        }
+    private fun extractContent(zipFile: ZipFile, path: String): ByteArray? {
+        val entry = zipFile.getEntry(path) ?: return null
 
-        InputStream inputStream = zipFile.getInputStream(entry);
-        return inputStream.readAllBytes();
+        val inputStream = zipFile.getInputStream(entry)
+        return inputStream.readAllBytes()
     }
 
-    private void unzipFile(ZipFile zipFile, ZipArchiveEntry entry, String dest) throws IOException {
-        File entryPath = new File(dest + File.separator + entry.getName());
-        if (entry.isDirectory()) {
+    private fun unzipFile(zipFile: ZipFile, entry: ZipArchiveEntry, dest: String) {
+        val entryPath = File(dest + File.separator + entry.name)
+        if (entry.isDirectory) {
             if (!entryPath.exists()) {
-                entryPath.mkdir();
+                entryPath.mkdir()
             }
 
-            return;
+            return
         }
 
-        InputStream inputStream = zipFile.getInputStream(entry);
+        val inputStream = zipFile.getInputStream(entry)
         if (entryPath.exists()) {
-            return;
+            return
         }
 
-        Files.write(entryPath.toPath(), inputStream.readAllBytes());
+        Files.write(entryPath.toPath(), inputStream.readAllBytes())
     }
 }

@@ -1,198 +1,181 @@
-package com.xudong.vam.core.selector.impl;
+package com.xudong.vam.core.selector.impl
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.xudong.vam.core.config.VamProperties;
-import com.xudong.vam.core.helper.PathHelper;
-import com.xudong.vam.core.model.SelectDetail;
-import com.xudong.vam.core.model.SelectPackage;
-import com.xudong.vam.core.model.VamPackage;
-import com.xudong.vam.core.model.domain.Metadata;
-import com.xudong.vam.core.repository.SelectDetailRepository;
-import com.xudong.vam.core.repository.SelectPackageRepository;
-import com.xudong.vam.core.repository.VamPackageRepository;
-import com.xudong.vam.core.selector.PackageSelector;
-import com.xudong.vam.core.utils.JsonUtils;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import com.fasterxml.jackson.core.type.TypeReference
+import com.xudong.vam.core.config.VamProperties
+import com.xudong.vam.core.helper.PathHelper
+import com.xudong.vam.core.model.SelectDetail
+import com.xudong.vam.core.model.VamPackage
+import com.xudong.vam.core.model.domain.Metadata
+import com.xudong.vam.core.repository.SelectDetailRepository
+import com.xudong.vam.core.repository.SelectPackageRepository
+import com.xudong.vam.core.repository.VamPackageRepository
+import com.xudong.vam.core.selector.PackageSelector
+import com.xudong.vam.core.utils.fromJson
+import lombok.AllArgsConstructor
+import lombok.extern.slf4j.Slf4j
+import org.springframework.stereotype.Component
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.function.BiConsumer
+import java.util.function.Consumer
 
 @Slf4j
 @Component
 @AllArgsConstructor
-public class PackageSelectorImpl implements PackageSelector {
-    private final VamPackageRepository vamPackageRepository;
+class PackageSelectorImpl(
+    private val vamPackageRepository: VamPackageRepository,
 
-    private final SelectPackageRepository selectPackageRepository;
+    private val selectPackageRepository: SelectPackageRepository,
 
-    private final SelectDetailRepository selectDetailRepository;
+    private val selectDetailRepository: SelectDetailRepository,
 
-    private final VamProperties vamProperties;
+    private val vamProperties: VamProperties,
 
-    private final PathHelper pathHelper;
+    private val pathHelper: PathHelper,
+) : PackageSelector {
 
-    @Override
-    public List<Long> select(long selectId, long rootId) throws IOException {
-        Optional<SelectPackage> selectPackageOptional = selectPackageRepository.findById(selectId);
-        if (selectPackageOptional.isEmpty()) {
-            return null;
+    override fun select(selectId: Long, rootId: Long): List<Long>? {
+        val selectPackageOptional = selectPackageRepository.findById(selectId)
+        if (selectPackageOptional.isEmpty) {
+            return null
         }
 
-        SelectPackage selectPackage = selectPackageOptional.get();
-        String uuid = selectPackage.getUuid();
+        val selectPackage = selectPackageOptional.get()
+        val uuid = selectPackage.uuid
 
-        Optional<VamPackage> vamPackageOptional = vamPackageRepository.findById(rootId);
-        if (vamPackageOptional.isEmpty()) {
-            return null;
+        val vamPackageOptional = vamPackageRepository.findById(rootId)
+        if (vamPackageOptional.isEmpty) {
+            return null
         }
 
-        Map<Long, VamPackage> packages = new LinkedHashMap<>();
-        selectPackages(vamPackageOptional.get(), packages);
+        val packages: MutableMap<Long, VamPackage> = LinkedHashMap()
+        selectPackages(vamPackageOptional.get(), packages)
 
-        for (VamPackage vamPackage : packages.values()) {
-            saveDetail(new SelectDetail(selectId, rootId, vamPackage.getId()));
-            linkPackage(vamPackage, uuid);
+        for (vamPackage in packages.values) {
+            saveDetail(SelectDetail(null, selectId, rootId, vamPackage.id!!))
+            linkPackage(vamPackage, uuid)
         }
 
-        symbolicLink(pathHelper.getSelectPath(uuid), Path.of(vamProperties.getModPath()));
+        symbolicLink(pathHelper.getSelectPath(uuid), Path.of(vamProperties.modPath))
 
-        return packages.keySet()
-                .stream()
-                .toList();
+        return packages.keys
+            .stream()
+            .toList()
     }
 
-    @Override
-    public void unselect(long selectDetailId) throws IOException {
-        Optional<SelectDetail> detailOptional = selectDetailRepository.findById(selectDetailId);
-        if (detailOptional.isEmpty()) {
-            return;
+    override fun unselect(selectDetailId: Long) {
+        val detailOptional = selectDetailRepository.findById(selectDetailId)
+        if (detailOptional.isEmpty) {
+            return
         }
 
-        SelectDetail detail = detailOptional.get();
-        Optional<SelectPackage> selectPackageOptional = selectPackageRepository.findById(detail.getSelectId());
-        if (selectPackageOptional.isEmpty()) {
-            return;
+        val detail = detailOptional.get()
+        val selectPackageOptional = selectPackageRepository.findById(detail.selectId)
+        if (selectPackageOptional.isEmpty) {
+            return
         }
-        SelectPackage selectPackage = selectPackageOptional.get();
+        val selectPackage = selectPackageOptional.get()
 
-        Optional<VamPackage> vamPackageOptional = vamPackageRepository.findById(detail.getChildId());
-        if (vamPackageOptional.isEmpty()) {
-            return;
+        val vamPackageOptional = vamPackageRepository.findById(detail.childId)
+        if (vamPackageOptional.isEmpty) {
+            return
         }
 
-        VamPackage vamPackage = vamPackageOptional.get();
-        unlinkPackage(vamPackage, selectPackage.getUuid());
+        val vamPackage = vamPackageOptional.get()
+        unlinkPackage(vamPackage, selectPackage.uuid)
 
-        selectDetailRepository.deleteById(detail.getId());
+        selectDetailRepository.deleteById(detail.id!!)
     }
 
-    @Override
-    public void clear() throws IOException {
-        String modPath = vamProperties.getModPath();
-        File file = Path.of(modPath).toFile();
-        String[] list = file.list();
-        if (list == null) {
-            return;
-        }
+    override fun clear() {
+        val modPath = vamProperties.modPath
+        val file = Path.of(modPath).toFile()
+        val list = file.list() ?: return
 
-        for (String item : list) {
-            Files.delete(Path.of(modPath, item));
+        for (item in list) {
+            Files.delete(Path.of(modPath, item))
         }
     }
 
-    private void selectPackages(VamPackage rootPackage, Map<Long, VamPackage> vamPackages) {
-        if (vamPackages.containsKey(rootPackage.getId())) {
-            return;
+    private fun selectPackages(rootPackage: VamPackage, vamPackages: MutableMap<Long, VamPackage>) {
+        if (vamPackages.containsKey(rootPackage.id)) {
+            return
         }
 
-        vamPackages.put(rootPackage.getId(), rootPackage);
-        String dependenciesJson = rootPackage.getDependencies();
-        if (dependenciesJson == null) {
-            return;
-        }
+        vamPackages[rootPackage.id!!] = rootPackage
+        val dependenciesJson = rootPackage.dependencies ?: return
 
         selectDependencies(
-                JsonUtils.fromJson(dependenciesJson, new TypeReference<>() {
-                }),
-                vamPackages
-        );
+            fromJson(dependenciesJson, object : TypeReference<Map<String, Metadata>>() {
+            }),
+            vamPackages
+        )
     }
 
-    private void linkPackage(VamPackage rootPackage, String uuid) throws IOException {
+    private fun linkPackage(rootPackage: VamPackage?, uuid: String) {
         if (rootPackage == null) {
-            return;
+            return
         }
 
-        Path path = pathHelper.getSelectPath(uuid);
+        val path = pathHelper.getSelectPath(uuid)
         if (!Files.exists(path)) {
-            Files.createDirectories(path);
+            Files.createDirectories(path)
         }
 
-        symbolicLink(Path.of(rootPackage.getPath()), path);
+        symbolicLink(Path.of(rootPackage.path), path)
     }
 
-    private void unlinkPackage(VamPackage vamPackage, String uuid) throws IOException {
-        Path path = pathHelper.getSelectPath(uuid);
+    private fun unlinkPackage(vamPackage: VamPackage, uuid: String) {
+        var path = pathHelper.getSelectPath(uuid)
         if (!Files.exists(path)) {
-            return;
+            return
         }
 
-        path = Path.of(path.toString(), vamPackage.getFileName());
+        path = Path.of(path.toString(), vamPackage.fileName)
         if (!Files.exists(path)) {
-            return;
+            return
         }
 
-        Files.delete(path);
+        Files.delete(path)
     }
 
-    private void selectDependencies(Map<String, Metadata> dependencies, Map<Long, VamPackage> vamPackages) {
-        if (dependencies == null || dependencies.isEmpty()) {
-            return;
+    private fun selectDependencies(dependencies: Map<String, Metadata>?, vamPackages: MutableMap<Long, VamPackage>) {
+        if (dependencies.isNullOrEmpty()) {
+            return
         }
 
-        Set<String> creators = new HashSet<>();
-        Set<String> names = new HashSet<>();
+        val creators: MutableSet<String> = HashSet()
+        val names: MutableSet<String> = HashSet()
 
-        dependencies.forEach((key, value) -> {
-            String[] strings = key.split("\\.");
-            String creatorName = strings[0];
-            String name = strings[1];
+        dependencies.forEach(BiConsumer<String, Metadata> { key: String, value: Metadata ->
+            val strings = key.split("\\.".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+            val creatorName = strings[0]
+            val name = strings[1]
 
-            creators.add(creatorName);
-            names.add(name);
-
-            selectDependencies(value.getDependencies(), vamPackages);
-        });
+            creators.add(creatorName)
+            names.add(name)
+            selectDependencies(value.dependencies, vamPackages)
+        })
 
         vamPackageRepository.findAllByCreatorNameInAndNameIn(creators, names)
-                .forEach(vamPackage -> selectPackages(vamPackage, vamPackages));
+            .forEach(Consumer { vamPackage: VamPackage -> selectPackages(vamPackage, vamPackages) })
     }
 
-    private void symbolicLink(Path source, Path dest) throws IOException {
-        dest = Path.of(dest.toString(), source.getFileName().toString());
-        if (Files.exists(dest)) {
-            return;
+    private fun symbolicLink(source: Path, dest: Path) {
+        val destination = Path.of(dest.toString(), source.fileName.toString())
+        if (Files.exists(destination)) {
+            return
         }
 
-        Files.createSymbolicLink(dest, source);
+        Files.createSymbolicLink(destination, source)
     }
 
-    private void saveDetail(SelectDetail selectDetail) {
-        SelectDetail detail = selectDetailRepository.findBySelectIdAndChildId(selectDetail.getSelectId(), selectDetail.getChildId());
+    private fun saveDetail(selectDetail: SelectDetail) {
+        val detail = selectDetailRepository.findBySelectIdAndChildId(selectDetail.selectId, selectDetail.childId)
         if (detail != null) {
-            return;
+            return
         }
 
-        selectDetailRepository.save(selectDetail);
+        selectDetailRepository.save(selectDetail)
     }
 }

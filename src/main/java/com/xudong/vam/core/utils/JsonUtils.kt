@@ -1,35 +1,33 @@
-package com.xudong.vam.core.utils;
+package com.xudong.vam.core.utils
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
 
-public class JsonUtils {
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+private val MAPPER: ObjectMapper = ObjectMapper()
+    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    public static String toJson(Object obj) {
-        try {
-            return MAPPER.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+fun toJson(obj: Any): String {
+    try {
+        return MAPPER.writeValueAsString(obj)
+    } catch (e: JsonProcessingException) {
+        throw RuntimeException(e)
     }
+}
 
-    public static <T> T fromJson(String json, Class<T> clazz) {
-        try {
-            return MAPPER.readValue(json, clazz);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+fun <T> fromJson(json: String, clazz: Class<T>): T {
+    try {
+        return MAPPER.readValue(json, clazz)
+    } catch (e: JsonProcessingException) {
+        throw RuntimeException(e)
     }
+}
 
-    public static <T> T fromJson(String json, TypeReference<T> typeReference) {
-        try {
-            return MAPPER.readValue(json, typeReference);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+fun <T> fromJson(json: String, typeReference: TypeReference<T>): T {
+    try {
+        return MAPPER.readValue(json, typeReference)
+    } catch (e: JsonProcessingException) {
+        throw RuntimeException(e)
     }
 }

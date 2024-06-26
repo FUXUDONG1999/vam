@@ -1,38 +1,36 @@
-package com.xudong.vam.core.storage.impl;
+package com.xudong.vam.core.storage.impl
 
-import com.xudong.vam.core.model.domain.Image;
-import com.xudong.vam.core.storage.Storage;
-import org.springframework.stereotype.Component;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.xudong.vam.core.model.domain.Image
+import com.xudong.vam.core.storage.Storage
+import org.springframework.stereotype.Component
+import java.nio.file.Files
+import java.nio.file.Path
 
 @Component
-public class ImageStorage implements Storage<Image> {
-    @Override
-    public String store(String path, Image image) {
-        if (image == null || path == null) {
-            return null;
+class ImageStorage : Storage<Image> {
+    override fun store(path: String?, obj: Image?): String? {
+        if (path == null || obj == null) {
+            return null
         }
 
-        String imagePath = image.getPath();
-        if (imagePath == null || imagePath.isEmpty()) {
-            return null;
+        val imagePath = obj.path
+        if (imagePath.isEmpty()) {
+            return null
         }
 
         try {
-            String name = imagePath.substring(imagePath.lastIndexOf("/") + 1);
-            byte[] content = image.getContent();
+            val name = imagePath.substring(imagePath.lastIndexOf("/") + 1)
+            val content = obj.content
 
-            Path dest = Path.of(path, name);
+            val dest = Path.of(path, name)
             if (Files.exists(dest)) {
-                return dest.toString();
+                return dest.toString()
             }
-            Files.write(dest, content);
+            Files.write(dest, content)
 
-            return dest.toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            return dest.toString()
+        } catch (e: Exception) {
+            throw RuntimeException(e)
         }
     }
 }

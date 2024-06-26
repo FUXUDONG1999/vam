@@ -1,39 +1,37 @@
-package com.xudong.vam.core.builder.impl;
+package com.xudong.vam.core.builder.impl
 
-import com.xudong.vam.core.builder.VamPackageBuilder;
-import com.xudong.vam.core.model.VamPackage;
-import com.xudong.vam.core.model.domain.Metadata;
-import com.xudong.vam.core.model.domain.Package;
-import com.xudong.vam.core.utils.JsonUtils;
-import org.springframework.stereotype.Component;
+import com.xudong.vam.core.builder.VamPackageBuilder
+import com.xudong.vam.core.model.VamPackage
+import com.xudong.vam.core.model.domain.Package
+import com.xudong.vam.core.utils.toJson
+import org.springframework.stereotype.Component
 
 @Component
-public class VamPackageBuilderImpl implements VamPackageBuilder {
-    @Override
-    public VamPackage build(Package pack, String imagePath) {
-        VamPackage vamPackage = new VamPackage();
-        Metadata metadata = pack.getMetadata();
+class VamPackageBuilderImpl : VamPackageBuilder {
+    override fun build(pack: Package, imagePath: String?): VamPackage {
+        val vamPackage = VamPackage()
+        val metadata = pack.metadata
         if (metadata != null) {
-            vamPackage.setDescription(metadata.getDescription());
-            vamPackage.setDependencies(JsonUtils.toJson(metadata.getDependencies()));
+            vamPackage.description = metadata.description
+            vamPackage.dependencies = toJson(metadata.dependencies!!)
         }
 
-        String fileName = pack.getPath()
-                .getFileName()
-                .toString();
-        fileName = fileName.substring(0, fileName.lastIndexOf("."));
+        var fileName = pack.path
+            .fileName
+            .toString()
+        fileName = fileName.substring(0, fileName.lastIndexOf("."))
 
-        String[] strings = fileName.split("\\.");
-        String creatorName = strings[0];
-        String name = strings[1];
-        String version = strings[2];
+        val strings = fileName.split("\\.")
+        val creatorName = strings[0]
+        val name = strings[1]
+        val version = strings[2]
 
-        vamPackage.setName(name);
-        vamPackage.setVersion(version);
-        vamPackage.setCreatorName(creatorName);
-        vamPackage.setPath(pack.getPath().toString());
-        vamPackage.setImagePath(imagePath);
+        vamPackage.name = name
+        vamPackage.version = version
+        vamPackage.creatorName = creatorName
+        vamPackage.path = pack.path.toString()
+        vamPackage.imagePath = imagePath
 
-        return vamPackage;
+        return vamPackage
     }
 }

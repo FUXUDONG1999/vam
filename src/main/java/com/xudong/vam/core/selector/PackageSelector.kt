@@ -1,12 +1,9 @@
-package com.xudong.vam.core.selector;
+package com.xudong.vam.core.selector
 
-import java.io.IOException;
-import java.util.List;
+interface PackageSelector {
+    fun select(selectId: Long, rootId: Long): List<Long>?
 
-public interface PackageSelector {
-    List<Long> select(long selectId, long rootId) throws IOException;
+    fun unselect(selectDetailId: Long)
 
-    void unselect(long selectDetailId) throws IOException;
-
-    void clear() throws IOException;
+    fun clear()
 }

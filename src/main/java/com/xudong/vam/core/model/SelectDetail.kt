@@ -1,37 +1,20 @@
-package com.xudong.vam.core.model;
+package com.xudong.vam.core.model
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import jakarta.persistence.*
 
 @Entity
-@Data
-@RequiredArgsConstructor
-@NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "t_select_detail")
-public class SelectDetail {
+data class SelectDetail(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    var id: Long? = null,
 
-    @NonNull
     @Column(name = "select_id")
-    private Long selectId;
+    var selectId: Long = 0,
 
-    @NonNull
     @Column(name = "root_id")
-    private Long rootId;
+    var rootId: Long = 0,
 
-    @NonNull
     @Column(name = "child_id")
-    private Long childId;
-}
+    var childId: Long = 0,
+)

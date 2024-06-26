@@ -1,57 +1,41 @@
-package com.xudong.vam.core.concurrent;
+package com.xudong.vam.core.concurrent
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Component
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.ForkJoinPool
+import java.util.stream.Collectors
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+private val EXECUTOR_SERVICE: ExecutorService = ForkJoinPool(100)
 
 @Component
-public class ConcurrentExecutor {
-    private static final ExecutorService EXECUTOR_SERVICE = new ForkJoinPool(100);
+class ConcurrentExecutor {
+    fun <P, R> executeAll(parameters: List<P>, function: (P) -> R): List<CompletableFuture<R>> {
+        val futures = ArrayList<CompletableFuture<R>>()
+        for (parameter in parameters) {
+            val future = CompletableFuture.supplyAsync({
+                function(parameter)
+            }, EXECUTOR_SERVICE)
 
-    public <P, R> List<CompletableFuture<R>> executeAll(List<P> parameters, Function<P, R> function) {
-        if (parameters == null || function == null) {
-            throw new IllegalArgumentException("Parameters and function cannot be null");
+            futures.add(future)
         }
 
-        List<CompletableFuture<R>> futures = new ArrayList<>();
-        for (P parameter : parameters) {
-            CompletableFuture<R> future = CompletableFuture.supplyAsync(
-                    () -> function.apply(parameter),
-                    EXECUTOR_SERVICE
-            );
-
-            futures.add(future);
-        }
-
-        return futures;
+        return futures
     }
 
-    public <R> CompletableFuture<R> execute(Callback<R> function) {
-        return CompletableFuture.supplyAsync(function::call, EXECUTOR_SERVICE);
+    fun <R> execute(function: () -> R): CompletableFuture<R> {
+        return CompletableFuture.supplyAsync(function, EXECUTOR_SERVICE)
     }
 
-    public void run(Runnable runnable) {
-        CompletableFuture.runAsync(runnable, EXECUTOR_SERVICE);
+    fun run(runnable: () -> Unit) {
+        CompletableFuture.runAsync(runnable, EXECUTOR_SERVICE)
     }
 
-    public <R> List<R> wait(List<CompletableFuture<R>> futures) {
-        if (futures == null || futures.isEmpty()) {
-            return null;
-        }
-
+    fun <R> wait(futures: List<CompletableFuture<R>>): List<R> {
         return futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
-    }
-
-    @FunctionalInterface
-    public interface Callback<R> {
-        R call();
+            .map { obj ->
+                obj.join()
+            }
+            .collect(Collectors.toList())
     }
 }

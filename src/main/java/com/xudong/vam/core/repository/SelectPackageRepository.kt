@@ -1,10 +1,10 @@
-package com.xudong.vam.core.repository;
+package com.xudong.vam.core.repository
 
-import com.xudong.vam.core.model.SelectPackage;
-import org.springframework.data.repository.CrudRepository;
-import org.springframework.stereotype.Repository;
+import com.xudong.vam.core.model.SelectPackage
+import org.springframework.data.repository.CrudRepository
+import org.springframework.stereotype.Repository
 
 @Repository
-public interface SelectPackageRepository extends CrudRepository<SelectPackage, Long> {
-    SelectPackage findByName(String name);
+interface SelectPackageRepository : CrudRepository<SelectPackage, Long> {
+    fun findByName(name: String): SelectPackage?
 }

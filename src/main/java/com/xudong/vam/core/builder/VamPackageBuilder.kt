@@ -1,8 +1,8 @@
-package com.xudong.vam.core.builder;
+package com.xudong.vam.core.builder
 
-import com.xudong.vam.core.model.VamPackage;
-import com.xudong.vam.core.model.domain.Package;
+import com.xudong.vam.core.model.VamPackage
+import com.xudong.vam.core.model.domain.Package
 
-public interface VamPackageBuilder {
-    VamPackage build(Package pack, String imagePath);
+interface VamPackageBuilder {
+    fun build(pack: Package, imagePath: String?): VamPackage
 }

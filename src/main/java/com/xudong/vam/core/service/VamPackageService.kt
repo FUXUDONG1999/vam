@@ -1,10 +1,7 @@
-package com.xudong.vam.core.service;
+package com.xudong.vam.core.service
 
-import com.xudong.vam.core.progress.ProgressBar;
+import java.nio.file.Path
 
-import java.io.IOException;
-import java.nio.file.Path;
-
-public interface VamPackageService {
-    void generate(Path path, ProgressBar progressBar) throws IOException;
+interface VamPackageService {
+    fun generate(path: Path, progressBar: ((total: Int, curret: Int) -> Unit)? = null)
 }

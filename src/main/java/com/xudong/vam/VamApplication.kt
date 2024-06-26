@@ -1,40 +1,38 @@
-package com.xudong.vam;
+package com.xudong.vam
 
-import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.Banner;
-import org.springframework.boot.WebApplicationType;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.context.ApplicationContext;
-
-import java.io.IOException;
+import javafx.application.Application
+import javafx.application.Application.launch
+import javafx.fxml.FXMLLoader
+import javafx.scene.Parent
+import javafx.scene.Scene
+import javafx.stage.Stage
+import lombok.extern.slf4j.Slf4j
+import org.springframework.boot.Banner
+import org.springframework.boot.WebApplicationType
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.context.ApplicationContext
 
 @Slf4j
 @SpringBootApplication
-public class VamApplication extends Application {
-    @Override
-    public void start(Stage stage) throws IOException {
-        Scene scene = new Scene(loadFXML(), 320, 240);
-        stage.setTitle("Vam");
-        stage.setScene(scene);
-        stage.show();
+open class VamApplication : Application() {
+    override fun start(stage: Stage) {
+        val scene = Scene(loadFXML(), 320.0, 240.0)
+        stage.title = "Vam"
+        stage.scene = scene
+        stage.show()
     }
 
-    private Parent loadFXML() throws IOException {
-        return new FXMLLoader(getClass().getResource("vam-application.fxml")).load();
+    private fun loadFXML(): Parent {
+        return FXMLLoader(javaClass.getResource("vam-application.fxml")).load()
     }
+}
 
-    public static void main(String[] args) throws IOException {
-        ApplicationContext context = new SpringApplicationBuilder(VamApplication.class)
-                .bannerMode(Banner.Mode.OFF)
-                .web(WebApplicationType.NONE)
-                .run(args);
+fun main(args: Array<String>) {
+    val context: ApplicationContext = SpringApplicationBuilder(VamApplication::class.java)
+        .bannerMode(Banner.Mode.OFF)
+        .web(WebApplicationType.NONE)
+        .run(*args)
 
-        launch(args);
-    }
+    launch(VamApplication::class.java, *args)
 }

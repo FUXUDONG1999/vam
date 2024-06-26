@@ -1,5 +1,5 @@
-package com.xudong.vam.core.service;
+package com.xudong.vam.core.service
 
-public interface SelectService {
-    long createSelect(String name);
+interface SelectService {
+    fun createSelect(name: String): Long
 }

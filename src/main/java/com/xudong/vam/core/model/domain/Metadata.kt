@@ -1,37 +1,25 @@
-package com.xudong.vam.core.model.domain;
+package com.xudong.vam.core.model.domain
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+data class Metadata(
+    var licenseType: String? = null,
 
-import java.util.List;
-import java.util.Map;
+    var creatorName: String? = null,
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class Metadata {
-    private String licenseType;
+    var packageName: String? = null,
 
-    private String creatorName;
+    var description: String? = null,
 
-    private String packageName;
+    var credits: String? = null,
 
-    private String description;
+    var instructions: String? = null,
 
-    private String credits;
+    var promotonalLink: String? = null,
 
-    private String instructions;
+    var programVersion: String? = null,
 
-    private String promotonalLink;
+    var standardReferenceVersionOption: String? = null,
 
-    private String programVersion;
+    var contentList: List<String>? = null,
 
-    private String standardReferenceVersionOption;
-
-    private List<String> contentList;
-
-    private Map<String, Metadata> dependencies;
-}
+    var dependencies: Map<String, Metadata>? = null,
+)

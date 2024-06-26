@@ -1,44 +1,34 @@
-package com.xudong.vam.core.model;
+package com.xudong.vam.core.model
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import lombok.Data;
+import jakarta.persistence.*
 
 @Entity
-@Data
-@Table(name = "t_vam", uniqueConstraints = @UniqueConstraint(name = "uniq", columnNames = {"name", "creator_name", "version"}))
-public class VamPackage {
+@Table(name = "t_vam", uniqueConstraints = [UniqueConstraint(name = "uniq", columnNames = ["name", "creator_name", "version"])])
+data class VamPackage(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    var id: Long? = null,
 
     @Column(name = "creator_name", nullable = false)
-    private String creatorName;
+    var creatorName: String = "",
 
     @Column(name = "name", nullable = false)
-    private String name;
+    var name: String = "",
 
     @Column(name = "version", nullable = false)
-    private String version;
+    var version: String = "",
 
     @Column(name = "path", nullable = false, length = 1024)
-    private String path;
+    var path: String = "",
 
     @Column(name = "description", length = 4096)
-    private String description;
+    var description: String? = null,
 
     @Column(name = "dependencies", length = 100000)
-    private String dependencies;
+    var dependencies: String? = null,
 
     @Column(name = "image_path")
-    private String imagePath;
-
-    public String getFileName() {
-        return String.format("%s.%s.%s.var", creatorName, name, version);
-    }
+    var imagePath: String? = null,
+) {
+    val fileName: String get() = String.format("%s.%s.%s.var", creatorName, name, version)
 }

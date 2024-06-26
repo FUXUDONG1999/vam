@@ -1,20 +1,11 @@
-package com.xudong.vam.core.model.domain;
+package com.xudong.vam.core.model.domain
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.nio.file.Path
 
-import java.nio.file.Path;
+data class Package(
+    var path: Path,
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class Package {
-    private Path path;
+    var metadata: Metadata?,
 
-    private Metadata metadata;
-
-    private Image image;
-}
+    var image: Image?,
+)

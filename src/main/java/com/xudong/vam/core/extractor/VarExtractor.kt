@@ -1,14 +1,11 @@
-package com.xudong.vam.core.extractor;
+package com.xudong.vam.core.extractor
 
-import com.xudong.vam.core.model.domain.Package;
+import com.xudong.vam.core.model.domain.Package
+import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+interface VarExtractor {
+    fun extract(packagePath: Path): Package
 
-public interface VarExtractor {
-    Package extract(Path packagePath) throws IOException;
-
-    List<CompletableFuture<Package>> extractAll(Path packagePath) throws IOException;
+    fun extractAll(packagePath: Path): List<CompletableFuture<Package>>
 }

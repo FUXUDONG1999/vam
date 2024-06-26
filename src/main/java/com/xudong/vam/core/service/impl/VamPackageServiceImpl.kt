@@ -1,83 +1,80 @@
-package com.xudong.vam.core.service.impl;
+package com.xudong.vam.core.service.impl
 
-import com.xudong.vam.core.builder.VamPackageBuilder;
-import com.xudong.vam.core.config.VamProperties;
-import com.xudong.vam.core.extractor.VarExtractor;
-import com.xudong.vam.core.model.VamPackage;
-import com.xudong.vam.core.model.domain.Image;
-import com.xudong.vam.core.model.domain.Package;
-import com.xudong.vam.core.progress.ProgressBar;
-import com.xudong.vam.core.repository.VamPackageRepository;
-import com.xudong.vam.core.service.VamPackageService;
-import com.xudong.vam.core.storage.Storage;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import com.xudong.vam.core.builder.VamPackageBuilder
+import com.xudong.vam.core.config.VamProperties
+import com.xudong.vam.core.extractor.VarExtractor
+import com.xudong.vam.core.model.VamPackage
+import com.xudong.vam.core.model.domain.Image
+import com.xudong.vam.core.model.domain.Package
+import com.xudong.vam.core.repository.VamPackageRepository
+import com.xudong.vam.core.service.VamPackageService
+import com.xudong.vam.core.storage.Storage
+import lombok.AllArgsConstructor
+import lombok.extern.slf4j.Slf4j
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Service
+import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+private val log = LoggerFactory.getLogger(VamPackageService::class.java)
 
 @Slf4j
 @Service
 @AllArgsConstructor
-public class VamPackageServiceImpl implements VamPackageService {
-    private final Storage<Image> imageStorage;
+class VamPackageServiceImpl(
+    private val imageStorage: Storage<Image>,
 
-    private final VarExtractor varExtractor;
+    private val varExtractor: VarExtractor,
 
-    private final VamPackageBuilder vamPackageBuilder;
+    private val vamPackageBuilder: VamPackageBuilder,
 
-    private final VamProperties vamProperties;
+    private val vamProperties: VamProperties,
 
-    private final VamPackageRepository vamPackageRepository;
-
-    @Override
-    public void generate(Path path, ProgressBar progressBar) throws IOException {
-        List<CompletableFuture<Package>> packages = varExtractor.extractAll(path);
-        if (packages == null || packages.isEmpty()) {
-            return;
+    private val vamPackageRepository: VamPackageRepository
+) : VamPackageService {
+    override fun generate(path: Path, progressBar: ((total: Int, curret: Int) -> Unit)?) {
+        val packages: List<CompletableFuture<Package>> = varExtractor.extractAll(path)
+        if (packages.isEmpty()) {
+            return
         }
 
-        int totalPack = packages.size();
-        int currentPack = 0;
+        val totalPack = packages.size
+        var currentPack = 0
 
-        for (CompletableFuture<Package> packFuture : packages) {
-            Package pack = null;
+        for (packFuture in packages) {
+            var pack: Package? = null
             try {
-                pack = packFuture.get();
+                pack = packFuture.get()
                 if (pack == null) {
-                    continue;
+                    continue
                 }
 
-                String imagePath = imageStorage.store(vamProperties.getImagePath(), pack.getImage());
-                VamPackage vamPackage = vamPackageBuilder.build(pack, imagePath);
+                val imagePath = imageStorage.store(vamProperties.imagePath, pack.image)
+                val vamPackage: VamPackage = vamPackageBuilder.build(pack, imagePath)
 
-                create(vamPackage);
+                create(vamPackage)
 
                 if (progressBar != null) {
-                    progressBar.progress(totalPack, ++currentPack);
+                    progressBar(totalPack, ++currentPack)
                 }
-            } catch (Exception e) {
+            } catch (e: Exception) {
                 if (pack != null) {
-                    log.error("Generate fail,path: {}", pack.getPath().toString(), e);
+                    log.error("Generate fail,path: {}", pack.path.toString(), e)
                 }
             }
-
         }
     }
 
-    private void create(VamPackage vamPackage) {
+    private fun create(vamPackage: VamPackage?) {
         if (vamPackage == null) {
-            return;
+            return
         }
 
-        VamPackage pack = vamPackageRepository.findByNameAndVersionAndCreatorName(vamPackage.getName(), vamPackage.getVersion(), vamPackage.getCreatorName());
+        val pack = vamPackageRepository.findByNameAndVersionAndCreatorName(vamPackage.name, vamPackage.version, vamPackage.creatorName)
         if (pack != null) {
-            return;
+            return
         }
 
-        vamPackageRepository.save(vamPackage);
+        vamPackageRepository.save(vamPackage)
     }
 }
